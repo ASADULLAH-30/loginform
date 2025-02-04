@@ -1,5 +1,11 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  GoogleAuthProvider, 
+  signInWithPopup 
+} from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
 import { getFirestore, setDoc, doc } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
 
 // Firebase Configuration
@@ -11,12 +17,13 @@ const firebaseConfig = {
     messagingSenderId: "940666093279",
     appId: "1:940666093279:web:62b99b369648ea2363336a",
     measurementId: "G-SXY83FXSP1"
-  };
+};
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth();
 const db = getFirestore();
+const provider = new GoogleAuthProvider();
 
 // Show Messages
 function showMessage(message, divId) {
@@ -28,6 +35,47 @@ function showMessage(message, divId) {
     messageDiv.style.opacity = 0;
   }, 5000);
 }
+
+// Google Sign-In Function
+document.getElementById("googleSignIn").addEventListener("click", () => {
+  signInWithPopup(auth, provider)
+    .then((result) => {
+      const user = result.user;
+      const userData = {
+        email: user.email,
+        firstName: user.displayName.split(" ")[0],
+        lastName: user.displayName.split(" ")[1] || "",
+        profilePic: user.photoURL
+      };
+
+      // Store user data in Firestore
+      setDoc(doc(db, "users", user.uid), userData, { merge: true })
+        .then(() => {
+          showMessage("Google Login Successful", "signInMessage");
+          localStorage.setItem("loggedInUserId", user.uid);
+          window.location.href = "homepage.html";
+        })
+        .catch((error) => {
+          console.error("Error writing document", error);
+          showMessage("Error saving user data to Firestore", "signInMessage");
+        });
+    })
+    .catch((error) => {
+      console.error("Google Sign-In Error:", error);
+      showMessage("Google Authentication Failed", "signInMessage");
+    });
+});
+
+// Toggle Between Forms
+document.getElementById("signUpButton").addEventListener("click", () => {
+  document.getElementById("signIn").style.display = "none";
+  document.getElementById("signup").style.display = "block";
+});
+
+document.getElementById("signInButton").addEventListener("click", () => {
+  document.getElementById("signup").style.display = "none";
+  document.getElementById("signIn").style.display = "block";
+});
 
 // Sign-Up Function
 document.getElementById("submitSignUp").addEventListener("click", (event) => {
