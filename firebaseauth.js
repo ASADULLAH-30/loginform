@@ -13,7 +13,7 @@ const firebaseConfig = {
     apiKey: "AIzaSyCXASyGwTiXwd7qe--NgeGDYoGIVmLNMiY",
     authDomain: "login-form-43a5b.firebaseapp.com",
     projectId: "login-form-43a5b",
-    storageBucket: "login-form-43a5b.firebasestorage.app",
+    storageBucket: "login-form-43a5b.appspot.com",  // Corrected storage URL
     messagingSenderId: "940666093279",
     appId: "1:940666093279:web:62b99b369648ea2363336a",
     measurementId: "G-SXY83FXSP1"
@@ -21,8 +21,8 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const auth = getAuth();
-const db = getFirestore();
+const auth = getAuth(app);
+const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
 // Show Messages
@@ -37,33 +37,29 @@ function showMessage(message, divId) {
 }
 
 // Google Sign-In Function
-document.getElementById("googleSignIn").addEventListener("click", () => {
-  signInWithPopup(auth, provider)
-    .then((result) => {
-      const user = result.user;
+document.getElementById("googleSignIn").addEventListener("click", async () => {
+  try {
+    const result = await signInWithPopup(auth, provider);
+    const user = result.user;
+
+    if (user) {
       const userData = {
         email: user.email,
-        firstName: user.displayName.split(" ")[0],
-        lastName: user.displayName.split(" ")[1] || "",
-        profilePic: user.photoURL
+        firstName: user.displayName ? user.displayName.split(" ")[0] : "",
+        lastName: user.displayName ? user.displayName.split(" ")[1] || "" : "",
+        profilePic: user.photoURL || "",
       };
 
-      // Store user data in Firestore
-      setDoc(doc(db, "users", user.uid), userData, { merge: true })
-        .then(() => {
-          showMessage("Google Login Successful", "signInMessage");
-          localStorage.setItem("loggedInUserId", user.uid);
-          window.location.href = "homepage.html";
-        })
-        .catch((error) => {
-          console.error("Error writing document", error);
-          showMessage("Error saving user data to Firestore", "signInMessage");
-        });
-    })
-    .catch((error) => {
-      console.error("Google Sign-In Error:", error);
-      showMessage("Google Authentication Failed", "signInMessage");
-    });
+      await setDoc(doc(db, "users", user.uid), userData, { merge: true });
+
+      showMessage("Google Login Successful", "signInMessage");
+      localStorage.setItem("loggedInUserId", user.uid);
+      window.location.href = "homepage.html";
+    }
+  } catch (error) {
+    console.error("Google Sign-In Error:", error);
+    showMessage(`Google Authentication Failed: ${error.message}`, "signInMessage");
+  }
 });
 
 // Toggle Between Forms
@@ -78,51 +74,46 @@ document.getElementById("signInButton").addEventListener("click", () => {
 });
 
 // Sign-Up Function
-document.getElementById("submitSignUp").addEventListener("click", (event) => {
+document.getElementById("submitSignUp").addEventListener("click", async (event) => {
   event.preventDefault();
   const email = document.getElementById("rEmail").value;
   const password = document.getElementById("rPassword").value;
   const firstName = document.getElementById("fName").value;
   const lastName = document.getElementById("lName").value;
 
-  createUserWithEmailAndPassword(auth, email, password)
-    .then((userCredential) => {
-      const user = userCredential.user;
-      const userData = { email, firstName, lastName };
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+    
+    await setDoc(doc(db, "users", user.uid), { email, firstName, lastName });
 
-      setDoc(doc(db, "users", user.uid), userData)
-        .then(() => {
-          showMessage("Account Created Successfully", "signUpMessage");
-          window.location.href = "index.html";
-        })
-        .catch((error) => console.error("Error writing document", error));
-    })
-    .catch((error) => {
-      if (error.code === "auth/email-already-in-use") {
-        showMessage("Email Address Already Exists !!!", "signUpMessage");
-      } else {
-        showMessage("Unable to create User", "signUpMessage");
-      }
-    });
+    showMessage("Account Created Successfully", "signUpMessage");
+    window.location.href = "index.html";
+  } catch (error) {
+    if (error.code === "auth/email-already-in-use") {
+      showMessage("Email Address Already Exists !!!", "signUpMessage");
+    } else {
+      showMessage("Unable to create User", "signUpMessage");
+    }
+  }
 });
 
 // Sign-In Function
-document.getElementById("submitSignIn").addEventListener("click", (event) => {
+document.getElementById("submitSignIn").addEventListener("click", async (event) => {
   event.preventDefault();
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  signInWithEmailAndPassword(auth, email, password)
-    .then((userCredential) => {
-      showMessage("Login is successful", "signInMessage");
-      localStorage.setItem("loggedInUserId", userCredential.user.uid);
-      window.location.href = "homepage.html";
-    })
-    .catch((error) => {
-      if (error.code === "auth/invalid-credential") {
-        showMessage("Incorrect Email or Password", "signInMessage");
-      } else {
-        showMessage("Account does not Exist", "signInMessage");
-      }
-    });
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    showMessage("Login is successful", "signInMessage");
+    localStorage.setItem("loggedInUserId", userCredential.user.uid);
+    window.location.href = "homepage.html";
+  } catch (error) {
+    if (error.code === "auth/invalid-credential") {
+      showMessage("Incorrect Email or Password", "signInMessage");
+    } else {
+      showMessage("Account does not Exist", "signInMessage");
+    }
+  }
 });
